@@ -1,7 +1,7 @@
 import json
 import os
-import fitz
-import docx
+# import fitz
+# import docx
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
@@ -224,28 +224,28 @@ class ChatService:
         return any(phrase in normalized_response for phrase in limitation_phrases)
 
 
-class FileService:
-    def extract_text_from_file(self, file_path: str) -> str:
-        ext = os.path.splitext(file_path)[-1].lower()
-        if ext == ".pdf":
-            return self._extract_pdf(file_path)
-        elif ext in [".docx", ".doc"]:
-            return self._extract_docx(file_path)
-        else:
-            raise ValueError(MESSAGES["unsupported_file_type"])
+# class FileService:
+#     def extract_text_from_file(self, file_path: str) -> str:
+#         ext = os.path.splitext(file_path)[-1].lower()
+#         if ext == ".pdf":
+#             return self._extract_pdf(file_path)
+#         elif ext in [".docx", ".doc"]:
+#             return self._extract_docx(file_path)
+#         else:
+#             raise ValueError(MESSAGES["unsupported_file_type"])
 
-    def _extract_pdf(self, path: str) -> str:
-        try:
-            print(MESSAGES["extracting_pdf"])
-            doc = fitz.open(path)
-            return "\n".join(page.get_text() for page in doc)
-        except Exception as e:
-            raise ValueError(MESSAGES["pdf_processing_error"].format(error=str(e)))
+#     def _extract_pdf(self, path: str) -> str:
+#         try:
+#             print(MESSAGES["extracting_pdf"])
+#             doc = fitz.open(path)
+#             return "\n".join(page.get_text() for page in doc)
+#         except Exception as e:
+#             raise ValueError(MESSAGES["pdf_processing_error"].format(error=str(e)))
 
-    def _extract_docx(self, path: str) -> str:
-        try:
-            print(MESSAGES["extracting_docx"])
-            doc = docx.Document(path)
-            return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
-        except Exception as e:
-            raise ValueError(MESSAGES["docx_processing_error"].format(error=str(e)))
+#     def _extract_docx(self, path: str) -> str:
+#         try:
+#             print(MESSAGES["extracting_docx"])
+#             doc = docx.Document(path)
+#             return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+#         except Exception as e:
+#             raise ValueError(MESSAGES["docx_processing_error"].format(error=str(e)))
