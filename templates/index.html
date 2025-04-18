@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced AI Chat</title>
+  <!-- Feather Icons & Prism.js for code highlighting -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.css" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+  <script src="https://unpkg.com/feather-icons"></script>
+      <!-- Prism.js CSS -->
+      <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+
+
+</head>
+<body>
+  <header>
+    <h2>
+      <i data-feather="message-square"></i>
+      AI Assistant
+    </h2>
+    <div class="header-actions">
+      <button id="doc-btn" class="action-btn">
+        <i data-feather="file-text"></i> Docs
+      </button>
+      <div class="theme-toggle" id="theme-toggle">
+        <i data-feather="moon"></i>
+        <span>Dark</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="chatbox" class="chatbox"></div>
+  
+  <div id="input-container" class="input-container">
+    <div id="upload-container" class="upload-container">
+      <input type="file" id="file-upload" accept="image/*,.pdf,.doc,.docx,.txt" />
+      <label for="file-upload" class="upload-label">
+        <i data-feather="paperclip"></i>
+      </label>
+      <button class="icon-button" id="code-btn">
+        <i data-feather="code"></i>
+      </button>
+    </div>
+    <input type="text" id="user-input" placeholder="Type your message..." />
+    <button id="send-btn" class="send-btn">
+      <i data-feather="send"></i> Send
+    </button>
+  </div>
+
+  <div class="status-bar">
+    <div class="token-counter">
+      <i data-feather="activity"></i>
+      <span id="token-count">0 tokens</span>
+    </div>
+    <div id="current-time"></div>
+  </div>
+
+  <!-- Include Partial Templates -->
+  {% include 'partials/code_modal.html' %}
+  {% include 'partials/document_viewer.html' %}
+
+  <!-- Required Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.6.2/sql-wasm.js"></script>
+        <!-- Prism.js Library -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+
+  <!-- Application Scripts -->
+  <script src="{{ url_for('static', filename='js/database.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/messageHandler.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/init.js') }}"></script>
+
+  <script>
+    // Initialize Feather Icons
+    document.addEventListener('DOMContentLoaded', () => {
+      feather.replace();
+    });
+  </script>
+</body>
+</html>
