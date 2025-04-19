@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Advanced AI Chat</title>
   <!-- Feather Icons & Prism.js for code highlighting -->
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.css" rel="stylesheet" />
   <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+  <link href="/static/css/styles.css" rel="stylesheet" />
   <script src="https://unpkg.com/feather-icons"></script>
       <!-- Prism.js CSS -->
       <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
@@ -70,12 +72,12 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
 
   <!-- Application Scripts -->
-  <script src="{{ url_for('static', filename='js/database.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/messageHandler.js') }}"></script>
+ 
+  <script src="/static/Js/database.js"></script>
+  <script src="/static/Js/ui.js"></script>
+  <script src="/static/Js/messageHandler.js"></script>
   <script src="/static/Js/Chat.js"></script>
-  <script src="{{ url_for('static', filename='js/init.js') }}"></script>
-
+  <script src="/static/Js/init.js"></script>
   <script>
     // Initialize Feather Icons
     document.addEventListener('DOMContentLoaded', () => {
