@@ -1,14 +1,15 @@
 import json
 import os
-# import fitz
-# import docx
+import fitz
+import docx
 import requests
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from Services.LocationService import LocationService
 from Services.WeatherService import WeatherService
 from messages import MESSAGES
-import logging
+from werkzeug.datastructures import FileStorage
+from io import BytesIO
 
 
 class ChatService:
@@ -36,37 +37,40 @@ class ChatService:
             print(f"[ERROR] Failed to load config: {e}")
             return {}
 
-    def generate_response(self, prompt: str):
+    def generate_response(self, prompt: str, from_file: bool = False):
         if not prompt or not isinstance(prompt, str):
             yield MESSAGES["invalid_prompt"]
             return
 
         try:
+            # 👉 Detect file input by a known prefix or pattern
+            if from_file:
+                print("[🔍] File input detected, sending directly to model.")
+                yield self._get_model_response(prompt)
+                return
+
+            # 🌦 Handle weather
             if self._is_weather_query(prompt):
-                # Handle weather-related queries
                 yield from self._handle_weather_query()
 
+            # 🌐 Handle live data
             elif self._needs_live_data(prompt):
-                # Handle queries that require live data
                 google_data = self._fetch_from_WebSites(prompt)
                 print(f"🔎 Live data from Google:\n{google_data}")
                 yield f"\n🔎 Live data from Google:\n{google_data}"
 
-            else:       
+            else:
                 model_response = self._get_model_response(prompt)
                 if self.is_knowledge_limitation_response(model_response):
                     model_response = ' '
                     google_data = self._fetch_from_WebSites(prompt)
                     yield f"\n🔎 Live data from Google:\n{google_data}"
-
                 else:
                     yield model_response
-            
-                # Check if the model's response indicates a knowledge limitation
-                
 
         except Exception as e:
             yield MESSAGES["gemini_api_error"].format(error=str(e))
+
 
     def _get_model_response(self, prompt: str) -> str:
         try:
@@ -224,28 +228,38 @@ class ChatService:
         return any(phrase in normalized_response for phrase in limitation_phrases)
 
 
-# class FileService:
-#     def extract_text_from_file(self, file_path: str) -> str:
-#         ext = os.path.splitext(file_path)[-1].lower()
-#         if ext == ".pdf":
-#             return self._extract_pdf(file_path)
-#         elif ext in [".docx", ".doc"]:
-#             return self._extract_docx(file_path)
-#         else:
-#             raise ValueError(MESSAGES["unsupported_file_type"])
 
-#     def _extract_pdf(self, path: str) -> str:
-#         try:
-#             print(MESSAGES["extracting_pdf"])
-#             doc = fitz.open(path)
-#             return "\n".join(page.get_text() for page in doc)
-#         except Exception as e:
-#             raise ValueError(MESSAGES["pdf_processing_error"].format(error=str(e)))
+class FileService:
+    def extract_text_from_file(self, prompt: str, files: list[FileStorage]) -> str:
+        combined_text = ""
+        print(f"Prompt: {prompt}")
+        for file in files:
+            ext = os.path.splitext(file.filename)[-1].lower()
+            print(f"Extracting text from {file.filename} with extension {ext}")
 
-#     def _extract_docx(self, path: str) -> str:
-#         try:
-#             print(MESSAGES["extracting_docx"])
-#             doc = docx.Document(path)
-#             return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
-#         except Exception as e:
-#             raise ValueError(MESSAGES["docx_processing_error"].format(error=str(e)))
+            if ext == ".pdf":
+                combined_text += self._extract_pdf(file) + "\n"
+            elif ext in [".docx", ".doc"]:
+                combined_text += self._extract_docx(file) + "\n"
+            else:
+                raise ValueError(MESSAGES["unsupported_file_type"])
+
+        return f"{prompt}\n{combined_text.strip()}"
+
+    def _extract_pdf(self, file: FileStorage) -> str:
+        try:
+            print(MESSAGES["extracting_pdf"])
+            pdf_bytes = file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            return "\n".join(page.get_text() for page in doc)
+        except Exception as e:
+            raise ValueError(MESSAGES["pdf_processing_error"].format(error=str(e)))
+
+    def _extract_docx(self, file: FileStorage) -> str:
+        try:
+            print(MESSAGES["extracting_docx"])
+            doc = docx.Document(BytesIO(file.read()))
+            return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+        except Exception as e:
+            raise ValueError(MESSAGES["docx_processing_error"].format(error=str(e)))
+

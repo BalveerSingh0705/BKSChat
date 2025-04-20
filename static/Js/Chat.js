@@ -1,95 +1,242 @@
 class ChatApp {
   constructor() {
     this.chatHistory = [];
-    this.isProcessing = false;
+    // Database.initDB(this);
+    UI.initUI(this);
+    this.attachments = [];
+    this.currentChatId = Date.now().toString();
+    this.chatContainer = document.getElementById('chat-container');
+    this.userInput = document.getElementById('user-input');
+    this.sendBtn = document.getElementById('send-btn');
+
+    this.attachBtn = document.getElementById('attach-btn');
+    this.fileInput = document.getElementById('file-input');
+    this.attachmentPreview = document.getElementById('attachment-preview');
+    this.newChatBtn = document.getElementById('new-chat-btn');
+    this.chatHistory = document.getElementById('chat-history');
+    this.mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    this.sidebar = document.getElementById('sidebar');
+
+    this.initApp();
+  }
+  async initApp() {
+    await Database.initDB(this); // Wait for the database to initialize
+    UI.initUI(this); // Initialize the UI
+    this.initEventListeners();
+    this.startNewChat();
+  }
+
+  initEventListeners() {
+    this.userInput.addEventListener('input', () => this.autoResizeInput());
+    this.userInput.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    this.sendBtn.addEventListener('click', () => this.sendMessage());
+    this.attachBtn.addEventListener('click', () => this.fileInput.click());
+    this.fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
+    this.newChatBtn.addEventListener('click', () => this.startNewChat());
+    this.mobileMenuBtn.addEventListener('click', () => this.sidebar.classList.toggle('active'));
+  }
+
+  autoResizeInput() {
+    this.userInput.style.height = 'auto';
+    this.userInput.style.height = `${this.userInput.scrollHeight}px`;
+    this.sendBtn.disabled = this.userInput.value.trim() === '' && this.attachments.length === 0;
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this.sendMessage();
+    }
+  }
+  resetSendButton() {
+    this.sendBtn.disabled = false;
+    this.sendBtn.innerHTML = `<i class="fas fa-paper-plane"></i>`;
+    this.sendBtn.classList.add('enabled');
+  }
+
+  handleFileSelection(e) {
+    for (let file of e.target.files) {
+      this.addAttachment(file);
+    }
+    this.fileInput.value = '';
+    this.sendBtn.disabled = this.userInput.value.trim() === '' && this.attachments.length === 0;
   }
 
   sendMessage() {
-    const userInput = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
-    const message = userInput.value.trim();
+    const message = this.userInput.value.trim();
+    if (message === '' && this.attachments.length === 0) return;
+    
+    // this.sendBtn.disabled = true;
+    
+    // this.sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+    // this.sendBtn.classList.remove('enabled');
 
-    if (message && !this.isProcessing) {
-      sendBtn.disabled = true;
-      // Save and display the user's message
-      Database.saveMessage(this, 'user', message);
-      MessageHandler.displayMessage(this, 'user', message);
+    this.addMessage(message, 'user', this.attachments);
+  
+    let requestBody;
+    let headers = {};
+  
+    if (this.attachments.length > 0) {
+      // Use FormData if there are attachments
+      requestBody = new FormData();
+      requestBody.append('message', message);
+      this.attachments.forEach((file) => requestBody.append('files', file));
+      // ✅ Do NOT set Content-Type manually when using FormData
+    } else {
+      // Use JSON if there are no attachments
+      requestBody = JSON.stringify({ message });
+      headers['Content-Type'] = 'application/json'; // ✅ Set only for JSON
+    }
+  
+    this.userInput.value = '';
+    this.userInput.style.height = 'auto';
+    this.attachments = [];
+    this.updateAttachmentPreview();
+    this.sendBtn.disabled = true;
+    this.showTypingIndicator();
+  
+    fetch('/chat', {
+      method: 'POST',
+      body: requestBody,
+      headers,
+    })
+      .then((response) => {
+        if (!response.body) throw new Error('No stream received');
+        const messageDiv = this.createStreamingMessage();
+        return this.streamAIResponse(response, messageDiv);
+      })
+      .catch((err) => {
+        this.removeTypingIndicator();
+        this.addMessage(`Error: ${err.message}`, 'ai');
+        this.resetSendButton();
+      });
+  }
+  
+  
 
-      // Clear the input field
-      userInput.value = '';
 
-      // Start processing the bot's response
-      this.isProcessing = true;
-      this.fetchResponse(message);
+  async streamAIResponse(response, messageElement) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let botResponse = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        // Remove the typing indicator once the response is fully received
+        this.removeTypingIndicator();
+        this.sendBtn.disabled = false;
+        break;
+      }
+
+      const chunk = decoder.decode(value, { stream: true });
+      botResponse += chunk;
+      // Prepare_responce= this.addMessage(botResponse, 'ai', []);
+      messageElement.innerHTML = formatResponseText(botResponse)
+       // Add the chunk to the chat container
+      // Update the message element with the streamed response
+     // messageElement.innerHTML = formatResponseText(botResponse);
+      this.scrollToBottom();
     }
   }
 
-  async fetchResponse(message) {
-    const chatbox = document.getElementById('chatbox');
-    const botMessageDiv = document.createElement('div');
-    botMessageDiv.className = 'message bot-message';
-    botMessageDiv.innerHTML = '<span class="loading-dots">...</span>';
-    chatbox.appendChild(botMessageDiv);
+  createStreamingMessage() {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai-message';
+    this.chatContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+    return messageDiv;
+  }
 
-    try {
-      const response = await fetch('/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
+  addMessage(text, sender, files = []) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}-message`;
+  
+    const fileHTML = files.length > 0 ? this.createAttachmentHTML(files) : '';
+    messageDiv.innerHTML = `
+      <div class="message-avatar">
+        <i class="fas ${sender === 'ai' ? 'fa-robot' : 'fa-user'}"></i>
+      </div>
+      <div class="message-content">
+        <div class="message-text">${formatResponseText(text)}</div>
+        ${fileHTML}
+      </div>
+    `;
+  
+    this.chatContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+  }
+  
+
+  createAttachmentHTML(files) {
+    return `
+      <div class="attachments">
+        ${files.map(file => `<div class="attachment">${file.name}</div>`).join('')}
+      </div>
+    `;
+  }
+
+  addAttachment(file) {
+    this.attachments.push(file);
+    this.updateAttachmentPreview();
+    this.sendBtn.disabled = this.userInput.value.trim() === '' && this.attachments.length === 0;
+  }
+
+  updateAttachmentPreview() {
+    this.attachmentPreview.innerHTML = '';
+    this.attachments.forEach((file, index) => {
+      const attachmentDiv = document.createElement('div');
+      attachmentDiv.className = 'attachment-item';
+      attachmentDiv.innerHTML = `
+        <span>${file.name}</span>
+        <button class="attachment-remove" data-index="${index}">&times;</button>
+      `;
+      this.attachmentPreview.appendChild(attachmentDiv);
+    });
+
+    this.attachmentPreview.querySelectorAll('.attachment-remove').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.target.dataset.index, 10);
+        this.attachments.splice(index, 1);
+        this.updateAttachmentPreview();
+        this.sendBtn.disabled = this.userInput.value.trim() === '' && this.attachments.length === 0;
+       
       });
+    });
+  }
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch response from the server');
-      }
+  showTypingIndicator() {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message ai-message';
+    typingDiv.id = 'typing-indicator';
+    typingDiv.innerHTML = `<em>Assistant is typing...</em>`;
+    this.chatContainer.appendChild(typingDiv);
+    this.scrollToBottom();
+  }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let botResponse = '';
+  removeTypingIndicator() {
+    const typingIndicator = document.getElementById('typing-indicator');
+    if (typingIndicator) typingIndicator.remove();
+  }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+  scrollToBottom() {
+    this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+  }
 
-        const chunk = decoder.decode(value, { stream: true });
-        botResponse += chunk;
-
-        // Format the response text
-        botMessageDiv.innerHTML = formatResponseText(botResponse);
-
-        chatbox.scrollTop = chatbox.scrollHeight;
-      }
-
-      // Save the bot's response to the database
-      Database.saveMessage(this, 'bot', botResponse);
-      this.isProcessing = false;
-    } catch (error) {
-      console.error('Error fetching response:', error);
-      botMessageDiv.innerHTML = '<span class="error">Error receiving response</span>';
-      this.isProcessing = false;
-    }
+  startNewChat() {
+    this.chatContainer.innerHTML = '';
+    //this.addMessage("Hello! I'm your AI assistant. How can I help you today?", 'ai');
+    this.attachments = [];
+    this.updateAttachmentPreview();
+    this.userInput.value = '';
+    this.userInput.style.height = 'auto';
+    this.sendBtn.disabled = true;
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  try {
-    window.chatApp = new ChatApp();
-    const sendBtn = document.getElementById('send-btn');
-    sendBtn.addEventListener('click', () => chatApp.sendMessage());
 
-    const userInput = document.getElementById('user-input');
-    userInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        chatApp.sendMessage();
-      }
-    });
-  } catch (error) {
-    console.error('Initialization error:', error);
-  }
-});
-
+// Export the ChatApp class for use in other files
+// export default ChatApp;
 function formatResponseText(text) {
   if (!text) return '';
 
