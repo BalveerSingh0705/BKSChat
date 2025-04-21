@@ -111,11 +111,7 @@ class ChatApp {
         this.resetSendButton();
       });
   }
-  
-  
-
-
-  async streamAIResponse(response, messageElement) {
+    async streamAIResponse(response, messageElement) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let botResponse = '';

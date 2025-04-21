@@ -56,7 +56,7 @@ class ChatService:
             # 🌐 Handle live data
             elif self._needs_live_data(prompt):
                 google_data = self._fetch_from_WebSites(prompt)
-                print(f"🔎 Live data from Google:\n{google_data}")
+               
                 yield f"\n🔎 Live data from Google:\n{google_data}"
 
             else:
